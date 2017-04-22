@@ -117,11 +117,9 @@ public class MySQLAccess {
                 }
         }
         
-        
         public static void main(String arg[]) throws Exception
         {
 //        	MySQLAccess myAccess = new MySQLAccess();
 //        	myAccess.readDataBase();
         }
-
 }
