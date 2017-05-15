@@ -24,167 +24,244 @@ import codeu.chat.common.ConversationSummary;
 import codeu.chat.common.Message;
 import codeu.chat.common.User;
 
+import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JTextArea;
+import javax.swing.border.Border;
+
 // NOTE: JPanel is serializable, but there is no need to serialize MessagePanel
 // without the @SuppressWarnings, the compiler will complain of no override for serialVersionUID
 @SuppressWarnings("serial")
 public final class MessagePanel extends JPanel {
 
-  // These objects are modified by the Conversation Panel.
-  private final JLabel messageOwnerLabel = new JLabel("Owner:", JLabel.RIGHT);
-  private final JLabel messageConversationLabel = new JLabel("Conversation:", JLabel.LEFT);
-  private final DefaultListModel<String> messageListModel = new DefaultListModel<>();
+    private final JLabel messageOwnerLabel = new JLabel("Owner:", 4);
+    private final JLabel messageConversationLabel = new JLabel("Conversation:", 2);
+    private final DefaultListModel<String> messageListModel = new DefaultListModel();
+    private final ClientContext clientContext;
 
-  private final ClientContext clientContext;
+    /**
+     * TextAreas for getting input and displaying output
+     **/
+    private JTextArea plain;
+    private JTextArea cipher;
+    /**
+     * Buttons for returning output
+     **/
+    private JButton encrypt;
+    private JButton decrypt;
+    /**
+     * JComboBox that allows the user to choose encryption algorithms
+     **/
+    private JComboBox<String> encryptionType;
+    /**
+     * String of input and output
+     **/
+    private String plainText;
+    private String cipherText;
+    /**
+     * Strings of shortened names of the encryption algorithms
+     **/
+    private String copy = "Copy";
+    private String caesar = "Caesar cipher";
+    private String rail = "Rail fence";
+    private String mono = "Monoalphabetic cipher";
+    private String vigen = "Vigenere cipher";
+    private String greek = "Greek";
+    /**
+     * Logic behind the encryption and decryption
+     **/
+    //private EncryptionStrategy strategy;
 
-  public MessagePanel(ClientContext clientContext) {
-    super(new GridBagLayout());
-    this.clientContext = clientContext;
-    initialize();
-  }
+    /**
+     * Add the buttons and combo box to the GUI
+     */
+    private void addButtons(JPanel p) {
+        // set up JComboBox
+        String[] encryptionNames = {copy, caesar, rail, mono, vigen, greek};
+        encryptionType = new JComboBox<String>(encryptionNames);
 
-  // External agent calls this to trigger an update of this panel's contents.
-  public void update(ConversationSummary owningConversation) {
+        // set up buttons
+        encrypt = new JButton("Encrypt");
+        //encrypt.addActionListener(this);
+        encrypt.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent var1) {
+                if (!MessagePanel.this.clientContext.user.hasCurrent()) {
+                    JOptionPane.showMessageDialog(MessagePanel.this, "You are not signed in.");
+                } else if (!MessagePanel.this.clientContext.conversation.hasCurrent()) {
+                    JOptionPane.showMessageDialog(MessagePanel.this, "You must select a conversation.");
+                } else {
+                    String var2 = (String) JOptionPane.showInputDialog(MessagePanel.this, "Enter message:", "Add Message", -1, (Icon) null, (Object[]) null, "");
+                    if (var2 != null && var2.length() > 0) {
+                        MessagePanel.this.clientContext.message.addMessage(MessagePanel.this.clientContext.user.getCurrent().id, MessagePanel.this.clientContext.conversation.getCurrentId(), var2);
+                        MessagePanel.this.getAllMessages(MessagePanel.this.clientContext.conversation.getCurrent());
+                    }
+                }
 
-    final User u = (owningConversation == null) ?
-        null :
-        clientContext.user.lookup(owningConversation.owner);
+            }
+        });
+        decrypt = new JButton("Decrypt");
+        //decrypt.addActionListener(this);
 
-    messageOwnerLabel.setText("Owner: " +
-        ((u==null) ?
-            ((owningConversation==null) ? "" : owningConversation.owner) :
-            u.name));
+        JPanel buttons = new JPanel(new FlowLayout());
 
-    messageConversationLabel.setText("Conversation: " + owningConversation.title);
+        buttons.add(encrypt);
+        buttons.add(decrypt);
+        buttons.add(encryptionType);
 
-    getAllMessages(owningConversation);
-  }
-
-  private void initialize() {
-
-    // This panel contains the messages in the current conversation.
-    // It has a title bar with the current conversation and owner,
-    // then a list panel with the messages, then a button bar.
-
-    // Title bar - current conversation and owner
-    final JPanel titlePanel = new JPanel(new GridBagLayout());
-    final GridBagConstraints titlePanelC = new GridBagConstraints();
-
-    final JPanel titleConvPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-    final GridBagConstraints titleConvPanelC = new GridBagConstraints();
-    titleConvPanelC.gridx = 0;
-    titleConvPanelC.gridy = 0;
-    titleConvPanelC.anchor = GridBagConstraints.PAGE_START;
-
-    final JPanel titleOwnerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-    final GridBagConstraints titleOwnerPanelC = new GridBagConstraints();
-    titleOwnerPanelC.gridx = 0;
-    titleOwnerPanelC.gridy = 1;
-    titleOwnerPanelC.anchor = GridBagConstraints.PAGE_START;
-
-    // messageConversationLabel is an instance variable of Conversation panel
-    // can update it.
-    messageConversationLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-    titleConvPanel.add(messageConversationLabel);
-
-    // messageOwnerLabel is an instance variable of Conversation panel
-    // can update it.
-    messageOwnerLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-    titleOwnerPanel.add(messageOwnerLabel);
-
-    titlePanel.add(titleConvPanel, titleConvPanelC);
-    titlePanel.add(titleOwnerPanel, titleOwnerPanelC);
-    titlePanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-
-    // User List panel.
-    final JPanel listShowPanel = new JPanel();
-    final GridBagConstraints listPanelC = new GridBagConstraints();
-
-    // messageListModel is an instance variable so Conversation panel
-    // can update it.
-    final JList<String> userList = new JList<>(messageListModel);
-    userList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-    userList.setVisibleRowCount(15);
-    userList.setSelectedIndex(-1);
-
-    final JScrollPane userListScrollPane = new JScrollPane(userList);
-    listShowPanel.add(userListScrollPane);
-    userListScrollPane.setMinimumSize(new Dimension(500, 200));
-    userListScrollPane.setPreferredSize(new Dimension(500, 200));
-
-    // Button panel
-    final JPanel buttonPanel = new JPanel();
-    final GridBagConstraints buttonPanelC = new GridBagConstraints();
-
-    final JButton addButton = new JButton("Add");
-    buttonPanel.add(addButton);
-
-    // Placement of title, list panel, buttons, and current user panel.
-    titlePanelC.gridx = 0;
-    titlePanelC.gridy = 0;
-    titlePanelC.gridwidth = 10;
-    titlePanelC.gridheight = 1;
-    titlePanelC.fill = GridBagConstraints.HORIZONTAL;
-    titlePanelC.anchor = GridBagConstraints.FIRST_LINE_START;
-
-    listPanelC.gridx = 0;
-    listPanelC.gridy = 1;
-    listPanelC.gridwidth = 10;
-    listPanelC.gridheight = 8;
-    listPanelC.fill = GridBagConstraints.BOTH;
-    listPanelC.anchor = GridBagConstraints.FIRST_LINE_START;
-    listPanelC.weighty = 0.8;
-
-    buttonPanelC.gridx = 0;
-    buttonPanelC.gridy = 11;
-    buttonPanelC.gridwidth = 10;
-    buttonPanelC.gridheight = 1;
-    buttonPanelC.fill = GridBagConstraints.HORIZONTAL;
-    buttonPanelC.anchor = GridBagConstraints.FIRST_LINE_START;
-
-    this.add(titlePanel, titlePanelC);
-    this.add(listShowPanel, listPanelC);
-    this.add(buttonPanel, buttonPanelC);
-
-    // User click Messages Add button - prompt for message body and add new Message to Conversation
-    addButton.addActionListener(new ActionListener() {
-      @Override
-      public void actionPerformed(ActionEvent e) {
-        if (!clientContext.user.hasCurrent()) {
-          JOptionPane.showMessageDialog(MessagePanel.this, "You are not signed in.");
-        } else if (!clientContext.conversation.hasCurrent()) {
-          JOptionPane.showMessageDialog(MessagePanel.this, "You must select a conversation.");
-        } else {
-          final String messageText = (String) JOptionPane.showInputDialog(
-              MessagePanel.this, "Enter message:", "Add Message", JOptionPane.PLAIN_MESSAGE,
-              null, null, "");
-          if (messageText != null && messageText.length() > 0) {
-            clientContext.message.addMessage(
-                clientContext.user.getCurrent().id,
-                clientContext.conversation.getCurrentId(),
-                messageText);
-            MessagePanel.this.getAllMessages(clientContext.conversation.getCurrent());
-          }
-        }
-      }
-    });
-
-    // Panel is set up. If there is a current conversation, Populate the conversation list.
-    getAllMessages(clientContext.conversation.getCurrent());
-  }
-
-  // Populate ListModel
-  // TODO: don't refetch messages if current conversation not changed
-  private void getAllMessages(ConversationSummary conversation) {
-    messageListModel.clear();
-
-    for (final Message m : clientContext.message.getConversationContents(conversation)) {
-      // Display author name if available.  Otherwise display the author UUID.
-      final String authorName = clientContext.user.getName(m.author);
-
-      final String displayString = String.format("%s: [%s]: %s",
-          ((authorName == null) ? m.author : authorName), m.creation, m.content);
-
-      messageListModel.addElement(displayString);
+        p.add(buttons, BorderLayout.SOUTH);
     }
-  }
+
+    /**
+     * Add the text areas to the GUI
+     */
+    private void addTextAreas(JPanel p) {
+        // prepare the labels
+        JLabel plainLabel = new JLabel("Plain text");
+        JLabel cipherLabel = new JLabel("Cipher text");
+        plainLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        cipherLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        setTextAreas();
+
+        JPanel textAreas = new JPanel();
+        textAreas.setLayout(new BoxLayout(textAreas, BoxLayout.Y_AXIS));
+
+        textAreas.add(plainLabel);
+        textAreas.add(plain);
+        textAreas.add(cipherLabel);
+        textAreas.add(cipher);
+
+        p.add(textAreas, BorderLayout.CENTER);
+    }
+
+    /**
+     * Set up the text areas
+     */
+    private void setTextAreas() {
+        // Set up default display messages
+        plainText = new String("Please enter plain text here.");
+        cipherText = new String("Please enter cipher text here.");
+
+        plain = new JTextArea(plainText, getWidth() / 2, getHeight() / 2);
+        cipher = new JTextArea(cipherText, getWidth() / 2, getHeight() / 2);
+
+        plain.setLineWrap(true);
+        cipher.setLineWrap(true);
+
+        plain.setWrapStyleWord(true);
+        cipher.setWrapStyleWord(true);
+
+        Border border = BorderFactory.createLineBorder(Color.BLACK);
+        plain.setBorder(BorderFactory.createCompoundBorder(border, BorderFactory.createEmptyBorder(10, 10, 10, 10)));
+        cipher.setBorder(BorderFactory.createCompoundBorder(border, BorderFactory.createEmptyBorder(10, 10, 10, 10)));
+    }
+
+
+    public MessagePanel(ClientContext var1) {
+        super(new GridBagLayout());
+        this.clientContext = var1;
+        this.initialize();
+        JPanel messageP = new JPanel(new BorderLayout());
+        addTextAreas(messageP);
+        addButtons(messageP);
+        this.add(messageP);
+    }
+
+    private void initialize() {
+        JPanel var1 = new JPanel(new GridBagLayout());
+        GridBagConstraints var2 = new GridBagConstraints();
+        JPanel var3 = new JPanel(new FlowLayout(0));
+        GridBagConstraints var4 = new GridBagConstraints();
+        var4.gridx = 0;
+        var4.gridy = 0;
+        var4.anchor = 19;
+        JPanel var5 = new JPanel(new FlowLayout(0));
+        GridBagConstraints var6 = new GridBagConstraints();
+        var6.gridx = 0;
+        var6.gridy = 1;
+        var6.anchor = 19;
+        this.messageConversationLabel.setAlignmentX(0.0F);
+        var3.add(this.messageConversationLabel);
+        this.messageOwnerLabel.setAlignmentX(0.0F);
+        var5.add(this.messageOwnerLabel);
+        var1.add(var3, var4);
+        var1.add(var5, var6);
+        var1.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        JPanel var7 = new JPanel();
+        GridBagConstraints var8 = new GridBagConstraints();
+        JList var9 = new JList(this.messageListModel);
+        var9.setSelectionMode(0);
+        var9.setVisibleRowCount(15);
+        var9.setSelectedIndex(-1);
+        JScrollPane var10 = new JScrollPane(var9);
+        var7.add(var10);
+        var10.setMinimumSize(new Dimension(500, 200));
+        var10.setPreferredSize(new Dimension(500, 200));
+        JPanel var11 = new JPanel();
+        GridBagConstraints var12 = new GridBagConstraints();
+        //JButton var13 = new JButton("Add");
+        //var11.add(var13);
+        var2.gridx = 0;
+        var2.gridy = 0;
+        var2.gridwidth = 10;
+        var2.gridheight = 1;
+        var2.fill = 2;
+        var2.anchor = 23;
+        var8.gridx = 0;
+        var8.gridy = 1;
+        var8.gridwidth = 10;
+        var8.gridheight = 8;
+        var8.fill = 1;
+        var8.anchor = 23;
+        var8.weighty = 0.8D;
+        var12.gridx = 0;
+        var12.gridy = 11;
+        var12.gridwidth = 10;
+        var12.gridheight = 1;
+        var12.fill = 2;
+        var12.anchor = 23;
+        this.add(var1, var2);
+        this.add(var7, var8);
+        this.add(var11, var12);
+
+        this.getAllMessages(this.clientContext.conversation.getCurrent());
+    }
+
+    // External agent calls this to trigger an update of this panel's contents.
+    public void update(ConversationSummary owningConversation) {
+
+        final User u = (owningConversation == null) ?
+                null :
+                clientContext.user.lookup(owningConversation.owner);
+
+        messageOwnerLabel.setText("Owner: " +
+                ((u == null) ?
+                        ((owningConversation == null) ? "" : owningConversation.owner) :
+                        u.name));
+
+        messageConversationLabel.setText("Conversation: " + owningConversation.title);
+
+        getAllMessages(owningConversation);
+    }
+
+
+    // Populate ListModel
+    // TODO: don't refetch messages if current conversation not changed
+    private void getAllMessages(ConversationSummary conversation) {
+        messageListModel.clear();
+
+        for (final Message m : clientContext.message.getConversationContents(conversation)) {
+            // Display author name if available.  Otherwise display the author UUID.
+            final String authorName = clientContext.user.getName(m.author);
+
+            final String displayString = String.format("%s: [%s]: %s",
+                    ((authorName == null) ? m.author : authorName), m.creation, m.content);
+
+            messageListModel.addElement(displayString);
+        }
+    }
 }

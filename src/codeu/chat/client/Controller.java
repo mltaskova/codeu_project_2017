@@ -23,20 +23,25 @@ import codeu.chat.common.Conversation;
 import codeu.chat.common.Message;
 import codeu.chat.common.NetworkCode;
 import codeu.chat.common.User;
+import codeu.chat.common.Uuid;
+import codeu.chat.common.Uuids;
 import codeu.chat.util.Logger;
 import codeu.chat.util.Serializers;
-import codeu.chat.util.Uuid;
 import codeu.chat.util.connections.Connection;
 import codeu.chat.util.connections.ConnectionSource;
+import java.sql.*;
+import codeu.chat.util.mysql.MySQLConnection;
 
 public class Controller implements BasicController {
 
   private final static Logger.Log LOG = Logger.newLog(Controller.class);
 
   private final ConnectionSource source;
+  private final MySQLConnection mysqlConnection;
 
   public Controller(ConnectionSource source) {
     this.source = source;
+    this.mysqlConnection = new MySQLConnection();
   }
 
   @Override
@@ -47,8 +52,8 @@ public class Controller implements BasicController {
     try (final Connection connection = source.connect()) {
 
       Serializers.INTEGER.write(connection.out(), NetworkCode.NEW_MESSAGE_REQUEST);
-      Uuid.SERIALIZER.write(connection.out(), author);
-      Uuid.SERIALIZER.write(connection.out(), conversation);
+      Uuids.SERIALIZER.write(connection.out(), author);
+      Uuids.SERIALIZER.write(connection.out(), conversation);
       Serializers.STRING.write(connection.out(), body);
 
       if (Serializers.INTEGER.read(connection.in()) == NetworkCode.NEW_MESSAGE_RESPONSE) {
@@ -64,6 +69,10 @@ public class Controller implements BasicController {
     return response;
   }
 
+  /*
+ +    Creates a new user, making sure to clear it with the server first, before adding
+ +    the name to the MySQL database.
+ +  */
   @Override
   public User newUser(String name) {
 
@@ -74,11 +83,15 @@ public class Controller implements BasicController {
       Serializers.INTEGER.write(connection.out(), NetworkCode.NEW_USER_REQUEST);
       Serializers.STRING.write(connection.out(), name);
       LOG.info("newUser: Request completed.");
-
+      // If server response works correctly
       if (Serializers.INTEGER.read(connection.in()) == NetworkCode.NEW_USER_RESPONSE) {
         response = Serializers.nullable(User.SERIALIZER).read(connection.in());
         LOG.info("newUser: Response completed.");
-      } else {
+
+                // Send name to database
+                       mysqlConnection.addUser(name);
+
+                      } else {  // If server response fails
         LOG.error("Response from server failed.");
       }
     } catch (Exception ex) {
@@ -98,7 +111,7 @@ public class Controller implements BasicController {
 
       Serializers.INTEGER.write(connection.out(), NetworkCode.NEW_CONVERSATION_REQUEST);
       Serializers.STRING.write(connection.out(), title);
-      Uuid.SERIALIZER.write(connection.out(), owner);
+      Uuids.SERIALIZER.write(connection.out(), owner);
 
       if (Serializers.INTEGER.read(connection.in()) == NetworkCode.NEW_CONVERSATION_RESPONSE) {
         response = Serializers.nullable(Conversation.SERIALIZER).read(connection.in());
