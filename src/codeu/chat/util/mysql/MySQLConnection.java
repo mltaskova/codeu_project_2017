@@ -96,11 +96,15 @@ public class MySQLConnection{
         // PreparedStatements can use variables and are more efficient
         PreparedStatement preparedStatement = connect
                 .prepareStatement("insert into  CodeUChat.Messages values (default, ?, ?, ?, ?)");
+
+        java.util.Date date = new java.util.Date();
+        java.sql.Timestamp timestamp = new java.sql.Timestamp(date.getTime());
+
         // Parameters start with 1
         preparedStatement.setString(1, owner);
         preparedStatement.setString(2, body);
         preparedStatement.setString(3, conversation);
-        preparedStatement.setDate(4, java.sql.Date.valueOf(new SimpleDateFormat("MM/dd/yyyy HH:mm:ss").format(new Date())));
+        preparedStatement.setTimestamp(4, timestamp);
         preparedStatement.executeUpdate();
     }
 
@@ -131,7 +135,7 @@ public class MySQLConnection{
     }
 
     //read all the messages from owner
-    public void readMessages(String owner) throws SQLException
+    public String[] readMessages(String owner) throws SQLException
     {
         Connection connect = getConnection();
 
@@ -144,12 +148,24 @@ public class MySQLConnection{
         ResultSet ownerResultSet = statement
                 .executeQuery();
         //writeResultSet(resultSet);
+
+        String[] arr = null;
+        while (ownerResultSet.next()) {
+            String em = ownerResultSet.getString("Body");
+            arr = em.split("\n");
+            for (int i = 0; i < arr.length; i++) {
+                System.out.println(arr[i]);
+            }
+        }
+
+        return arr;
+
     }
 
-    public void writeResultSet()
-    {
-        //writing owners into the current session so they can appear in the gui
-    }
+//    public void writeResultSet()
+//    {
+//        //writing owners into the current session so they can appear in the gui
+//    }
 
 
 
