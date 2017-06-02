@@ -18,12 +18,18 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.SQLException;
+import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 import codeu.chat.client.ClientContext;
 import codeu.chat.common.ConversationSummary;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 // NOTE: JPanel is serializable, but there is no need to serialize ConversationPanel
 // without the @SuppressWarnings, the compiler will complain of no override for serialVersionUID
@@ -199,4 +205,29 @@ public final class ConversationPanel extends JPanel {
         }
         return null;
     }
+
+//    private void temp(ConversationSummary cs) throws SQLException
+//    {
+//        final Runnable update = new Runnable() {
+//            @Override
+//            public void run() {
+//                try {
+//                    messagePanel.getAllMessages(cs);
+//                    messagePanel.update(cs);
+//                } catch (SQLException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        };
+//
+//        ScheduledExecutorService scheduler =
+//                Executors.newScheduledThreadPool(1);
+//
+//        final ScheduledFuture<?> updateHandle =
+//                scheduler.scheduleAtFixedRate(update, 0, 5, SECONDS);
+////        scheduler.schedule(new Runnable() {
+////            public void run() { updateHandle.cancel(true); }
+////        }, 60 * 60, SECONDS);
+//    }
+
 }

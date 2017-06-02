@@ -19,6 +19,9 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.SQLException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import javax.swing.*;
 import javax.swing.border.Border;
 
@@ -33,6 +36,8 @@ import codeu.chat.util.encryption.Greek;
 import codeu.chat.util.encryption.MonoalphabeticCipher;
 import codeu.chat.util.encryption.RailFence;
 import codeu.chat.util.encryption.VigenereCipher;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 
 // NOTE: JPanel is serializable, but there is no need to serialize MessagePanel
@@ -196,7 +201,7 @@ public final class MessagePanel extends JPanel implements ActionListener {
                         e1.printStackTrace();
                     }
                     try {
-                        MessagePanel.this.getAllMessages(clientContext.conversation.getCurrent());
+                        temp();
                     } catch (SQLException e1) {
                         e1.printStackTrace();
                     }
@@ -394,4 +399,28 @@ public final class MessagePanel extends JPanel implements ActionListener {
             userListArea.append(displayString + '\n');
         }
     }
+
+    private void temp() throws SQLException
+    {
+        final Runnable update = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    MessagePanel.this.getAllMessages(clientContext.conversation.getCurrent());
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        ScheduledExecutorService scheduler =
+                Executors.newScheduledThreadPool(1);
+
+        final ScheduledFuture<?> updateHandle =
+                scheduler.scheduleAtFixedRate(update, 0, 5, SECONDS);
+//        scheduler.schedule(new Runnable() {
+//            public void run() { updateHandle.cancel(true); }
+//        }, 60 * 60, SECONDS);
+    }
+
 }
