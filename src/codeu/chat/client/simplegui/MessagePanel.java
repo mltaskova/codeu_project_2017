@@ -18,6 +18,10 @@ package codeu.chat.client.simplegui;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.sql.SQLException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import javax.swing.*;
 import javax.swing.border.Border;
 
@@ -32,6 +36,8 @@ import codeu.chat.util.encryption.Greek;
 import codeu.chat.util.encryption.MonoalphabeticCipher;
 import codeu.chat.util.encryption.RailFence;
 import codeu.chat.util.encryption.VigenereCipher;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 
 // NOTE: JPanel is serializable, but there is no need to serialize MessagePanel
@@ -186,11 +192,19 @@ public final class MessagePanel extends JPanel implements ActionListener {
                         MessagePanel.this, "Enter message:", "Add Message", JOptionPane.PLAIN_MESSAGE,
                         null, null, "");
                 if (messageText != null && messageText.length() > 0) {
-                    clientContext.message.addMessage(
-                            clientContext.user.getCurrent().id,
-                            clientContext.conversation.getCurrentId(),
-                            messageText);
-                    MessagePanel.this.getAllMessages(clientContext.conversation.getCurrent());
+                    try {
+                        clientContext.message.addMessage(
+                                clientContext.user.getCurrent().id,
+                                clientContext.conversation.getCurrentId(),
+                                messageText);
+                    } catch (SQLException e1) {
+                        e1.printStackTrace();
+                    }
+                    try {
+                        temp();
+                    } catch (SQLException e1) {
+                        e1.printStackTrace();
+                    }
                 }
             }
 
@@ -202,11 +216,19 @@ public final class MessagePanel extends JPanel implements ActionListener {
             } else {
                 final String messageText = cipher.getText();
                 if (messageText != null && messageText.length() > 0) {
-                    clientContext.message.addMessage(
-                            clientContext.user.getCurrent().id,
-                            clientContext.conversation.getCurrentId(),
-                            messageText);
-                    MessagePanel.this.getAllMessages(clientContext.conversation.getCurrent());
+                    try {
+                        clientContext.message.addMessage(
+                                clientContext.user.getCurrent().id,
+                                clientContext.conversation.getCurrentId(),
+                                messageText);
+                    } catch (SQLException e1) {
+                        e1.printStackTrace();
+                    }
+                    try {
+                        MessagePanel.this.getAllMessages(clientContext.conversation.getCurrent());
+                    } catch (SQLException e1) {
+                        e1.printStackTrace();
+                    }
                 }
             }
 
@@ -235,7 +257,7 @@ public final class MessagePanel extends JPanel implements ActionListener {
         }
     }
 
-    public MessagePanel(ClientContext clientContext) {
+    public MessagePanel(ClientContext clientContext) throws SQLException {
         super(new GridBagLayout());
         this.clientContext = clientContext;
         initialize();
@@ -254,7 +276,7 @@ public final class MessagePanel extends JPanel implements ActionListener {
     }
 
     // External agent calls this to trigger an update of this panel's contents.
-    public void update(ConversationSummary owningConversation) {
+    public void update(ConversationSummary owningConversation) throws SQLException {
 
         final User u = (owningConversation == null) ?
                 null :
@@ -270,7 +292,7 @@ public final class MessagePanel extends JPanel implements ActionListener {
         getAllMessages(owningConversation);
     }
 
-    private void initialize() {
+    private void initialize() throws SQLException {
 
         // This panel contains the messages in the current conversation.
         // It has a title bar with the current conversation and owner,
@@ -364,7 +386,7 @@ public final class MessagePanel extends JPanel implements ActionListener {
 
     // Populate ListModel
     // TODO: don't refetch messages if current conversation not changed
-    private void getAllMessages(ConversationSummary conversation) {
+    private void getAllMessages(ConversationSummary conversation) throws SQLException {
         userListArea.setText("");
 
         for (final Message m : clientContext.message.getConversationContents(conversation)) {
@@ -377,4 +399,28 @@ public final class MessagePanel extends JPanel implements ActionListener {
             userListArea.append(displayString + '\n');
         }
     }
+
+    private void temp() throws SQLException
+    {
+        final Runnable update = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    MessagePanel.this.getAllMessages(clientContext.conversation.getCurrent());
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        ScheduledExecutorService scheduler =
+                Executors.newScheduledThreadPool(1);
+
+        final ScheduledFuture<?> updateHandle =
+                scheduler.scheduleAtFixedRate(update, 0, 5, SECONDS);
+//        scheduler.schedule(new Runnable() {
+//            public void run() { updateHandle.cancel(true); }
+//        }, 60 * 60, SECONDS);
+    }
+
 }

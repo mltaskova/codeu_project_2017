@@ -33,11 +33,9 @@ public class Controller implements BasicController {
     private final static Logger.Log LOG = Logger.newLog(Controller.class);
 
     private final ConnectionSource source;
-    private final MySQLConnection mysqlConnection;
 
     public Controller(ConnectionSource source) {
         this.source = source;
-        this.mysqlConnection = new MySQLConnection();
     }
 
     @Override
@@ -52,8 +50,13 @@ public class Controller implements BasicController {
             Uuids.SERIALIZER.write(connection.out(), conversation);
             Serializers.STRING.write(connection.out(), body);
 
+            MySQLConnection conn = new MySQLConnection();
+
+
             if (Serializers.INTEGER.read(connection.in()) == NetworkCode.NEW_MESSAGE_RESPONSE) {
                 response = Serializers.nullable(Message.SERIALIZER).read(connection.in());
+                conn.updateMessages(response.previous, response.next, conversation);
+//                conn.updateConversations(response.id, conversation);
             } else {
                 LOG.error("Response from server failed.");
             }
@@ -98,6 +101,7 @@ public class Controller implements BasicController {
 
     /**
      * Add new user with password
+     *
      * @param name name of the user
      * @param pass user password
      * @return the newly added user
@@ -111,7 +115,12 @@ public class Controller implements BasicController {
             Serializers.INTEGER.write(connection.out(), NetworkCode.NEW_USER_REQUEST);
             Serializers.STRING.write(connection.out(), name);
             Serializers.STRING.write(connection.out(), pass);
+
             LOG.info("newUser: Request completed.");
+
+            // Quick test to see if user with password request is successfully created
+            // System.out.println("User with password request created.");
+
             // If server response works correctly
             if (Serializers.INTEGER.read(connection.in()) == NetworkCode.NEW_USER_RESPONSE) {
                 response = Serializers.nullable(User.SERIALIZER).read(connection.in());

@@ -14,4 +14,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-java -cp ./third_party/junit4.jar:./bin codeu.chat.TestRunner
+java -cp .:/Users/mltaskova/Downloads/mysql-connector-java-6.0.5/mysql-connector-java-6.0.5-bin.jar:./third_party/junit4.jar:./bin codeu.chat.TestRunner

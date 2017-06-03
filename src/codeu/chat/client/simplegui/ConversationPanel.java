@@ -17,12 +17,19 @@ package codeu.chat.client.simplegui;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.sql.SQLException;
+import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 import codeu.chat.client.ClientContext;
 import codeu.chat.common.ConversationSummary;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 // NOTE: JPanel is serializable, but there is no need to serialize ConversationPanel
 // without the @SuppressWarnings, the compiler will complain of no override for serialVersionUID
@@ -32,14 +39,14 @@ public final class ConversationPanel extends JPanel {
     private final ClientContext clientContext;
     private final MessagePanel messagePanel;
 
-    public ConversationPanel(ClientContext clientContext, MessagePanel messagePanel) {
+    public ConversationPanel(ClientContext clientContext, MessagePanel messagePanel) throws SQLException {
         super(new GridBagLayout());
         this.clientContext = clientContext;
         this.messagePanel = messagePanel;
         initialize();
     }
 
-    private void initialize() {
+    private void initialize() throws SQLException {
 
         // This panel contains from top to bottom: a title bar,
         // a list of conversations, and a button bar.
@@ -117,7 +124,11 @@ public final class ConversationPanel extends JPanel {
         updateButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                ConversationPanel.this.getAllConversations(listModel);
+                try {
+                    ConversationPanel.this.getAllConversations(listModel);
+                } catch (SQLException e1) {
+                    e1.printStackTrace();
+                }
             }
         });
 
@@ -130,8 +141,16 @@ public final class ConversationPanel extends JPanel {
                             ConversationPanel.this, "Enter title:", "Add Conversation", JOptionPane.PLAIN_MESSAGE,
                             null, null, "");
                     if (s != null && s.length() > 0) {
-                        clientContext.conversation.startConversation(s, clientContext.user.getCurrent().id);
-                        ConversationPanel.this.getAllConversations(listModel);
+                        try {
+                            clientContext.conversation.startConversation(s, clientContext.user.getCurrent().id);
+                        } catch (SQLException e1) {
+                            e1.printStackTrace();
+                        }
+                        try {
+                            ConversationPanel.this.getAllConversations(listModel);
+                        } catch (SQLException e1) {
+                            e1.printStackTrace();
+                        }
                     }
                 } else {
                     JOptionPane.showMessageDialog(ConversationPanel.this, "You are not signed in.");
@@ -150,7 +169,11 @@ public final class ConversationPanel extends JPanel {
 
                     clientContext.conversation.setCurrent(cs);
 
-                    messagePanel.update(cs);
+                    try {
+                        messagePanel.update(cs);
+                    } catch (SQLException e1) {
+                        e1.printStackTrace();
+                    }
                 }
             }
         });
@@ -159,7 +182,7 @@ public final class ConversationPanel extends JPanel {
     }
 
     // Populate ListModel - updates display objects.
-    private void getAllConversations(DefaultListModel<String> convDisplayList) {
+    private void getAllConversations(DefaultListModel<String> convDisplayList) throws SQLException {
 
         clientContext.conversation.updateAllConversations(false);
         convDisplayList.clear();
@@ -182,4 +205,29 @@ public final class ConversationPanel extends JPanel {
         }
         return null;
     }
+
+//    private void temp(ConversationSummary cs) throws SQLException
+//    {
+//        final Runnable update = new Runnable() {
+//            @Override
+//            public void run() {
+//                try {
+//                    messagePanel.getAllMessages(cs);
+//                    messagePanel.update(cs);
+//                } catch (SQLException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        };
+//
+//        ScheduledExecutorService scheduler =
+//                Executors.newScheduledThreadPool(1);
+//
+//        final ScheduledFuture<?> updateHandle =
+//                scheduler.scheduleAtFixedRate(update, 0, 5, SECONDS);
+////        scheduler.schedule(new Runnable() {
+////            public void run() { updateHandle.cancel(true); }
+////        }, 60 * 60, SECONDS);
+//    }
+
 }
